@@ -1,6 +1,12 @@
 # Ignore virtual environment directory, cache directories, log files, and env
 .venv/
+
+.idea/
+
 __pycache__/
+
 *.log
+
 .env
+
 .DS_Store

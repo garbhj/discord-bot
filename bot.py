@@ -6,6 +6,7 @@ import random
 
 import discord
 from discord.ext import commands, tasks
+from discord.ext.commands import Context
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -18,10 +19,10 @@ with open('config.json') as config_file:
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 prefix = config.get("prefix", "!")
 invite_link = config.get("invite_link", "")
-GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY")  # Load the Google AI key
 
-# Set up intents (you can customize these based on your bot's needs)
+# Set up intents (including for slash commands)
 intents = discord.Intents.default()
+intents.message_content = True
 
 # Custom logging formatter for colored log output
 class LoggingFormatter(logging.Formatter):
@@ -56,21 +57,17 @@ file_handler.setFormatter(logging.Formatter(
 logger.addHandler(console_handler)
 logger.addHandler(file_handler)
 
-# Custom bot class
+# Bot class
 class DiscordBot(commands.Bot):
     def __init__(self):
-        super().__init__(
-            command_prefix=commands.when_mentioned_or(prefix),
-            intents=intents,
-            help_command=None
-        )
+        super().__init__(command_prefix=prefix, intents=intents, help_command=None)
         self.logger = logger
         self.config = config
         self.database = None  # Placeholder for database connection
 
     # Database initialization
     async def init_db(self):
-        # Database initialization logic (if any)
+        # TODO: Implement database
         pass
 
     # Load all cogs/extensions
@@ -104,6 +101,10 @@ class DiscordBot(commands.Bot):
         await self.init_db()
         await self.load_cogs()
         self.status_task.start()
+
+        await self.tree.sync()
+        self.logger.info(f"Synced commands for {self.user.name}")
+
 
     # Handle messages
     async def on_message(self, message: discord.Message):
@@ -141,8 +142,16 @@ class DiscordBot(commands.Bot):
         elif isinstance(error, commands.MissingRequiredArgument):
             embed = discord.Embed(title="Error!", description=str(error).capitalize(), color=0xE02B2B)
             await context.send(embed=embed)
+        elif isinstance(error, commands.CommandNotFound):
+            command_name = str(error).split('"')[1]  # Extract command name from error message
+            embed = discord.Embed(title="Command Not Found", description=f"The command `{command_name}` was not found. Please check the command name and try again.", color=0xE02B2B)
+            await context.send(embed=embed)
+        elif isinstance(error, commands.CommandInvokeError) and isinstance(error.original, ValueError):
+            embed = discord.Embed(title="Error!", description=str(error.original), color=0xE02B2B)
+            await context.send(embed=embed)
         else:
-            raise error
+            self.logger.error(f"An unexpected error occurred: {error}")
+            await context.reply("An unexpected error occurred. Please try again later.", ephemeral=True)
 
 # Initialize and run the bot
 bot = DiscordBot()

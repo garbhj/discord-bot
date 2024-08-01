@@ -12,9 +12,9 @@ class Gemini(commands.Cog, name="gemini"):
         # Ignore messages sent by the bot itself
         if message.author == self.bot.user:
             return
-
+        
         # Check for attachments
-        if message.attachments:
+        if message.attachments and (self.bot.user.mentioned_in(message) or isinstance(message.channel, discord.DMChannel)):
             async with message.channel.typing():
                 cleaned_text = helpers.clean_discord_message(message.content)
                 for attachment in message.attachments:

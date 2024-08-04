@@ -14,17 +14,6 @@ class Llama(commands.Cog, name="llama"):
         self.bot = bot
         self.message_history = memory.load_memory()
 
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message) -> None:
-        # Ignore messages from the bot itself or mentions of everyone
-        if message.author == self.bot.user or message.mention_everyone:
-            return
-        
-        # Check if the bot is mentioned or if the message is a DM
-        if self.bot.user.mentioned_in(message) or isinstance(message.channel, discord.DMChannel):
-            cleaned_text = helpers.clean_discord_message(message.content)
-            await self.process_message(message, cleaned_text)
-
 
     # Add slash and prefix command to the chat function
     @commands.hybrid_command(name="chat", with_app_command=True, description="Chat with Llama - limited to text")
@@ -53,21 +42,8 @@ class Llama(commands.Cog, name="llama"):
         await self.reset_user_history(ctx.author.id)
         await ctx.send(f"Message History Reset for user: {ctx.author.name}")
 
-
-    # Called for the listener only: not for the slash command
-    async def process_message(self, message: discord.Message, cleaned_text: str):
-        async with message.channel.typing():
-            # Handle message attachments
-            try:
-                if message.attachments:
-                    cleaned_text += await self.handle_attachment(message.attachments[0])
-                response_text = await self.generate_response(message.author.id, cleaned_text)
-                await self.send_response(message, response_text)
-
-            except ValueError as e:
-                await self.send_response(message, str(e))
-
     
+    # Called by both slash command and @mention
     async def generate_response(self, user_id, cleaned_text):
         user_id = str(user_id)
 
@@ -95,7 +71,7 @@ class Llama(commands.Cog, name="llama"):
             file_contents = await attachment.read()
             return '\n' + file_contents.decode('utf-8')
         elif any(attachment.filename.lower().endswith(ext) for ext in sum(helpers.gemini_attachments, [])):
-            raise ValueError(f"File type unsupported by Llama: your prompt is being diverted to Gemini.\n *note: this may take longer than an average Llama 3 response*")
+            raise ValueError(f"File type unsupported by Llama: your prompt will instead be sent to Gemini.\n *note: this may take longer than an average Llama 3 response*")
         else:
             raise ValueError(f"Unsupported file type. Please upload a .txt file.")
 

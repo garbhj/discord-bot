@@ -1,3 +1,12 @@
+"""
+Credits (modified from): 
+
+Copyright © Krypton 2019-Present - https://github.com/kkrypt0nn (https://krypton.ninja)
+Description:
+🐍 A simple template to start to code your own and personalized Discord bot in Python
+"""
+
+
 import os
 import json
 import logging

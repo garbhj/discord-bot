@@ -1,5 +1,6 @@
 import os
 import google.generativeai as genai
+import mimetypes
 
 # Load the Google AI key from environment variables
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY")
@@ -35,6 +36,27 @@ async def generate_response_with_image_and_text(image_data, text):
     image_parts = [{"mime_type": "image/jpeg", "data": image_data}]
     prompt_parts = [image_parts[0], f"\n{text if text else 'What is this a picture of?'}"]
     response = main_model.generate_content(prompt_parts)
+    if response._error:
+        return "❌" + str(response._error)
+    return response.text
+
+# To handle multiple attachements
+async def generate_multimodal_response(text, attachments):
+    prompt_parts = [text] if text else ["Please respond to these attachments."]
+
+    for attachment in attachments:
+
+        mime_type, encoding = mimetypes.guess_type(attachment)
+        if not mime_type:
+            mime_type = 'application/octet-stream'
+
+        prompt_parts.append({
+            "mime_type": mime_type,
+            "data": attachment['data']
+        })
+
+    response = main_model.generate_content(prompt_parts)
+    
     if response._error:
         return "❌" + str(response._error)
     return response.text

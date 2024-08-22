@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
-from utils import memory, helpers
+from utils import memory, helpers, gemini_api
+
 
 class Chat(commands.Cog, name="chat"):
     def __init__(self, bot):
@@ -19,19 +20,27 @@ class Chat(commands.Cog, name="chat"):
         async with message.channel.typing():
             cleaned_text = helpers.clean_discord_message(message.content)
             
+            # TODO: Implement multiple attachments in the file
+            # This will involve passing in a list of attachements, and conslidating image, audio, and video.
+            attachements = []
+
             if message.attachments:
                 for attachment in message.attachments:
+                    # TODO: Implement potential web retrieval and pdf reading
                     if attachment.filename.endswith('.txt'):
                         cleaned_text += await self.handle_text_attachment(attachment)
                     elif any(attachment.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']):
                         await message.add_reaction('🎨')
-                        await self.handle_image(message, attachment, cleaned_text)
-                        return
+                        attachements.append(await self.handle_image(message, attachment))
                     elif any(attachment.filename.lower().endswith(ext) for ext in ['.mp3', '.wav', '.ogg']):
                         await message.add_reaction('🎵')
-                        await self.handle_audio(message, attachment, cleaned_text)
-                        return
+                        attachements.append(await self.handle_audio(message, attachment))
 
+            if attachements != []:
+                print(len(attachements))
+                gemini_api.generate_multimodal_response(cleaned_text, attachements)
+
+            print("No attachments")
             # No image or audio attachments, use Llama
             response_text = await self.generate_llama_response(message.author.id, cleaned_text)
             await helpers.split_and_send_messages(message, response_text)
@@ -43,14 +52,14 @@ class Chat(commands.Cog, name="chat"):
         else:
             raise ValueError(f"Unsupported file type. Please upload a .txt file.")
 
-    async def handle_image(self, message, attachment, cleaned_text):
+    async def handle_image(self, message, attachment):
         gemini_cog = self.bot.get_cog('gemini')
-        await gemini_cog.handle_image_attachment(message, attachment, cleaned_text)
+        return await gemini_cog.get_image_attachment(message, attachment)
 
     # TODO: audio does not yet work
-    async def handle_audio(self, message, attachment, cleaned_text):
+    async def handle_audio(self, message, attachment):
         gemini_cog = self.bot.get_cog('gemini')
-        await gemini_cog.handle_audio_attachment(message, attachment, cleaned_text)
+        return await gemini_cog.get_audio_attachment(message, attachment)
 
     async def generate_llama_response(self, user_id, cleaned_text):
         llama_cog = self.bot.get_cog('llama')

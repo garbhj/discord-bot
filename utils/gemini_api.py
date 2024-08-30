@@ -1,6 +1,9 @@
 import os
 import google.generativeai as genai
-import mimetypes
+from google.api_core import retry
+from PIL import Image
+import io
+
 
 # Load the Google AI key from environment variables
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY")
@@ -20,7 +23,7 @@ safety_settings = [
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
 ]
 
-main_model = genai.GenerativeModel(model_name="gemini-1.5-pro-latest", generation_config=text_generation_config,
+main_model = genai.GenerativeModel(model_name="gemini-1.5-pro", generation_config=text_generation_config,
                                    safety_settings=safety_settings)
 backup_model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=text_generation_config,
                                     safety_settings=safety_settings)
@@ -45,15 +48,22 @@ async def generate_multimodal_response(text, attachments):
     prompt_parts = [text] if text else ["Please respond to these attachments."]
 
     for attachment in attachments:
-        prompt_parts.append({
-            "mime_type": attachment['mime_type'],
-            "data": attachment['data']
-        })
+        if 'image' in attachment['mime_type']:
+            image = Image.open(io.BytesIO(attachment['data']))
+            prompt_parts.append(image)
+        elif 'audio' in attachment['mime_type']:
+            audio_data = attachment['data']
+            prompt_parts.append(audio_data)
 
-    print(prompt_parts)
+    # I added these print statements for troubleshooting
+    print(len(prompt_parts))
 
+    print("Generating content...")
     response = main_model.generate_content(prompt_parts)
+    print("Finished!!!", "\n", response)
     
     if response._error:
+        print(str(response._error))
         return "❌" + str(response._error)
+    print(response.text)
     return response.text

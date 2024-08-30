@@ -43,20 +43,16 @@ class Chat(commands.Cog, name="chat"):
                         await message.add_reaction('🎵')
                         audio_data = await self.get_audio_attachment(message, attachment)
                         if audio_data:
-                            attachments.append({
-                                'filename': attachment.filename,
-                                'data': audio_data,
-                                'mime_type': attachment.content_type or 'audio/mpeg'
-                            })
+                            attachments.append(audio_data)
 
             if attachments != []:
                 print(len(attachments))
-                await gemini_api.generate_multimodal_response(cleaned_text, attachments)
+                response_text = await gemini_api.generate_multimodal_response(cleaned_text, attachments)
             else:
                 print("No attachments")
                 # No image or audio attachments, use Llama
                 response_text = await self.generate_llama_response(message.author.id, cleaned_text)
-                await helpers.split_and_send_messages(message, response_text)
+            await helpers.split_and_send_messages(message, response_text)
 
     async def handle_text_attachment(self, attachment: discord.Attachment) -> str:
         if attachment.filename.endswith('.txt'):
@@ -74,19 +70,62 @@ class Chat(commands.Cog, name="chat"):
                 image_data = await resp.read()
                 return image_data
     
-    # TODO: Fix audio handling (doesn't work yet)
-    async def get_audio_attachment(self, message, attachment):
+    # # TODO: Fix audio handling (doesn't work yet)
+    # async def get_audio_attachment(self, message, attachment):
+    #     async with aiohttp.ClientSession() as session:
+    #         async with session.get(attachment.url) as resp:
+    #             if resp.status != 200:
+    #                 await message.channel.send('Unable to download the audio.')
+    #                 return
+    #             audio_data = await resp.read()
+    #             return audio_data
+
+    async def handle_audio_attachment(self, attachment: discord.Attachment):
+        # Download the audio file
         async with aiohttp.ClientSession() as session:
             async with session.get(attachment.url) as resp:
                 if resp.status != 200:
                     await message.channel.send('Unable to download the audio.')
                     return
                 audio_data = await resp.read()
-                return audio_data
+
+        # Check the size of the audio file, because apparently files over 20 mb need to be handled over files api
+        file_size_mb = len(audio_data) / (1024 * 1024)
+        
+        if file_size_mb > 19:
+            # Upload the file using the File API
+            uploaded_file = await self.upload_audio_to_gemini(attachment.filename, audio_data)
+            return {
+                'filename': attachment.filename,
+                'data': uploaded_file.uri,
+                'mime_type': attachment.content_type or 'audio/mpeg',
+                'upload_type': 'file_api'
+            }
+        else:
+            # Return the audio as inline data
+            return {
+                'filename': attachment.filename,
+                'data': audio_data,
+                'mime_type': attachment.content_type or 'audio/mpeg',
+                'upload_type': 'inline'
+            }
+
 
     async def generate_llama_response(self, user_id, cleaned_text):
         llama_cog = self.bot.get_cog('llama')
         return await llama_cog.generate_response(user_id, cleaned_text)
+    
+
+    async def upload_audio_to_gemini(self, filename: str, data: bytes):
+        import google.generativeai as genai
+        from io import BytesIO
+
+        # Use the File API to upload the audio
+        audio_file = BytesIO(data)
+        uploaded_file = genai.upload_file(file=audio_file, filename=filename)
+        
+        return uploaded_file
+
 
 async def setup(bot):
     await bot.add_cog(Chat(bot))

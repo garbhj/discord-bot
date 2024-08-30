@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 from utils import memory, helpers, gemini_api
+import aiohttp
 
 
 class Chat(commands.Cog, name="chat"):
@@ -22,7 +23,7 @@ class Chat(commands.Cog, name="chat"):
             
             # TODO: Implement multiple attachments in the file
             # This will involve passing in a list of attachements, and conslidating image, audio, and video.
-            attachements = []
+            attachments = []
 
             if message.attachments:
                 for attachment in message.attachments:
@@ -31,19 +32,31 @@ class Chat(commands.Cog, name="chat"):
                         cleaned_text += await self.handle_text_attachment(attachment)
                     elif any(attachment.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']):
                         await message.add_reaction('🎨')
-                        attachements.append(await self.handle_image(message, attachment))
+                        image_data = await self.get_image_attachment(message, attachment)
+                        if image_data:
+                            attachments.append({
+                                'filename': attachment.filename,
+                                'data': image_data,
+                                'mime_type': attachment.content_type or 'image/jpeg'
+                            })
                     elif any(attachment.filename.lower().endswith(ext) for ext in ['.mp3', '.wav', '.ogg']):
                         await message.add_reaction('🎵')
-                        attachements.append(await self.handle_audio(message, attachment))
+                        audio_data = await self.get_audio_attachment(message, attachment)
+                        if audio_data:
+                            attachments.append({
+                                'filename': attachment.filename,
+                                'data': audio_data,
+                                'mime_type': attachment.content_type or 'audio/mpeg'
+                            })
 
-            if attachements != []:
-                print(len(attachements))
-                gemini_api.generate_multimodal_response(cleaned_text, attachements)
-
-            print("No attachments")
-            # No image or audio attachments, use Llama
-            response_text = await self.generate_llama_response(message.author.id, cleaned_text)
-            await helpers.split_and_send_messages(message, response_text)
+            if attachments != []:
+                print(len(attachments))
+                await gemini_api.generate_multimodal_response(cleaned_text, attachments)
+            else:
+                print("No attachments")
+                # No image or audio attachments, use Llama
+                response_text = await self.generate_llama_response(message.author.id, cleaned_text)
+                await helpers.split_and_send_messages(message, response_text)
 
     async def handle_text_attachment(self, attachment: discord.Attachment) -> str:
         if attachment.filename.endswith('.txt'):
@@ -52,14 +65,24 @@ class Chat(commands.Cog, name="chat"):
         else:
             raise ValueError(f"Unsupported file type. Please upload a .txt file.")
 
-    async def handle_image(self, message, attachment):
-        gemini_cog = self.bot.get_cog('gemini')
-        return await gemini_cog.get_image_attachment(message, attachment)
-
-    # TODO: audio does not yet work
-    async def handle_audio(self, message, attachment):
-        gemini_cog = self.bot.get_cog('gemini')
-        return await gemini_cog.get_audio_attachment(message, attachment)
+    async def get_image_attachment(self, message, attachment):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(attachment.url) as resp:
+                if resp.status != 200:
+                    await message.channel.send('Unable to download the image.')
+                    return
+                image_data = await resp.read()
+                return image_data
+    
+    # TODO: Fix audio handling (doesn't work yet)
+    async def get_audio_attachment(self, message, attachment):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(attachment.url) as resp:
+                if resp.status != 200:
+                    await message.channel.send('Unable to download the audio.')
+                    return
+                audio_data = await resp.read()
+                return audio_data
 
     async def generate_llama_response(self, user_id, cleaned_text):
         llama_cog = self.bot.get_cog('llama')

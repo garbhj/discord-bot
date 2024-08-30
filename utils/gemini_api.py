@@ -45,15 +45,12 @@ async def generate_multimodal_response(text, attachments):
     prompt_parts = [text] if text else ["Please respond to these attachments."]
 
     for attachment in attachments:
-
-        mime_type, encoding = mimetypes.guess_type(attachment)
-        if not mime_type:
-            mime_type = 'application/octet-stream'
-
         prompt_parts.append({
-            "mime_type": mime_type,
+            "mime_type": attachment['mime_type'],
             "data": attachment['data']
         })
+
+    print(prompt_parts)
 
     response = main_model.generate_content(prompt_parts)
     

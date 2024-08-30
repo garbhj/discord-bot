@@ -1,7 +1,11 @@
 import discord
 from discord.ext import commands
 from utils import memory, helpers, gemini_api
+import tempfile
 import aiohttp
+import google.generativeai as genai
+from io import BytesIO
+import os
 
 
 class Chat(commands.Cog, name="chat"):
@@ -34,6 +38,7 @@ class Chat(commands.Cog, name="chat"):
                         await message.add_reaction('🎨')
                         image_data = await self.get_image_attachment(message, attachment)
                         if image_data:
+                            # attachments.append(image_data)
                             attachments.append({
                                 'filename': attachment.filename,
                                 'data': image_data,
@@ -41,7 +46,7 @@ class Chat(commands.Cog, name="chat"):
                             })
                     elif any(attachment.filename.lower().endswith(ext) for ext in ['.mp3', '.wav', '.ogg']):
                         await message.add_reaction('🎵')
-                        audio_data = await self.get_audio_attachment(message, attachment)
+                        audio_data = await self.handle_audio_attachment(attachment)
                         if audio_data:
                             attachments.append(audio_data)
 
@@ -69,6 +74,22 @@ class Chat(commands.Cog, name="chat"):
                     return
                 image_data = await resp.read()
                 return image_data
+            
+
+    # async def handle_image_attachment(self, message, attachment):
+    #     async with aiohttp.ClientSession() as session:
+    #         async with session.get(attachment.url) as resp:
+    #             if resp.status != 200:
+    #                 await message.channel.send('Unable to download the image.')
+    #                 return
+    #             image_data = await resp.read()
+    #             uploaded_file = await self.upload_audio_to_gemini(attachment.filename, audio_data)
+    #             return {
+    #                 'filename': attachment.filename,
+    #                 'data': uploaded_file.uri,
+    #                 'mime_type': attachment.content_type or 'audio/mpeg',
+    #                 'upload_type': 'file_api'
+    #             }
     
     # # TODO: Fix audio handling (doesn't work yet)
     # async def get_audio_attachment(self, message, attachment):
@@ -89,26 +110,35 @@ class Chat(commands.Cog, name="chat"):
                     return
                 audio_data = await resp.read()
 
-        # Check the size of the audio file, because apparently files over 20 mb need to be handled over files api
-        file_size_mb = len(audio_data) / (1024 * 1024)
+        uploaded_file = await self.upload_file_to_gemini(attachment.filename, audio_data)
+        return {
+            'filename': attachment.filename,
+            'data': uploaded_file,
+            'uri': uploaded_file.uri,
+            'mime_type': attachment.content_type or 'audio/mpeg',
+            'upload_type': 'file_api'
+        }
+
+        # # Check the size of the audio file, because apparently files over 20 mb need to be handled over files api
+        # file_size_mb = len(audio_data) / (1024 * 1024)
         
-        if file_size_mb > 19:
-            # Upload the file using the File API
-            uploaded_file = await self.upload_audio_to_gemini(attachment.filename, audio_data)
-            return {
-                'filename': attachment.filename,
-                'data': uploaded_file.uri,
-                'mime_type': attachment.content_type or 'audio/mpeg',
-                'upload_type': 'file_api'
-            }
-        else:
-            # Return the audio as inline data
-            return {
-                'filename': attachment.filename,
-                'data': audio_data,
-                'mime_type': attachment.content_type or 'audio/mpeg',
-                'upload_type': 'inline'
-            }
+        # if file_size_mb > 19:
+        #     # Upload file using the File API
+        #     uploaded_file = await self.upload_audio_to_gemini(attachment.filename, audio_data)
+        #     return {
+        #         'filename': attachment.filename,
+        #         'data': uploaded_file.uri,
+        #         'mime_type': attachment.content_type or 'audio/mpeg',
+        #         'upload_type': 'file_api'
+        #     }
+        # else:
+        #     # Return the audio as inline data
+        #     return {
+        #         'filename': attachment.filename,
+        #         'data': audio_data,
+        #         'mime_type': attachment.content_type or 'audio/mpeg',
+        #         'upload_type': 'inline'
+        #     }
 
 
     async def generate_llama_response(self, user_id, cleaned_text):
@@ -116,15 +146,25 @@ class Chat(commands.Cog, name="chat"):
         return await llama_cog.generate_response(user_id, cleaned_text)
     
 
-    async def upload_audio_to_gemini(self, filename: str, data: bytes):
-        import google.generativeai as genai
-        from io import BytesIO
-
-        # Use the File API to upload the audio
-        audio_file = BytesIO(data)
-        uploaded_file = genai.upload_file(file=audio_file, filename=filename)
+    # async def upload_audio_to_gemini(self, filename: str, data: bytes):
+    #     # Use the File API to upload the audio
+    #     audio_file = BytesIO(data)
+    #     uploaded_file = genai.upload_file(file=audio_file, filename=filename)
         
+    #     return uploaded_file
+    
+    async def upload_file_to_gemini(self, filename: str, data: bytes):
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as temp_file:
+            temp_file.write(data)
+            temp_file_path = temp_file.name
+        try:
+            uploaded_file = genai.upload_file(path=temp_file_path)
+        finally:
+            os.unlink(temp_file_path)
+        print(f"Uploaded file '{uploaded_file.display_name}' as: {uploaded_file.uri}")
         return uploaded_file
+
+    
 
 
 async def setup(bot):

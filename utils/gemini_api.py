@@ -45,21 +45,28 @@ async def generate_response_with_image_and_text(image_data, text):
 
 # To handle multiple attachements
 async def generate_multimodal_response(text, attachments):
-    prompt_parts = [text] if text else ["Please respond to these attachments."]
+    prompt_parts = [text] if text else ["Please respond to these files, as you deem appropriate."]
 
     for attachment in attachments:
         if 'image' in attachment['mime_type']:
             image = Image.open(io.BytesIO(attachment['data']))
             prompt_parts.append(image)
         elif 'audio' in attachment['mime_type']:
-            audio_data = attachment['data']
-            prompt_parts.append(audio_data)
+            if attachment['upload_type'] == 'inline':
+                prompt_parts.append({
+                    'mime_type': attachment['mime_type'],
+                    'data': attachment['data']
+                })
+            elif attachment['upload_type'] == 'file_api':
+                # file = genai.get_file(attachment['data'])
+                prompt_parts.append(attachment['data'])  # 
+
 
     # I added these print statements for troubleshooting
     print(len(prompt_parts))
 
     print("Generating content...")
-    response = main_model.generate_content(prompt_parts)
+    response = backup_model.generate_content(prompt_parts)
     print("Finished!!!", "\n", response)
     
     if response._error:

@@ -56,7 +56,7 @@ class Llama(commands.Cog, name="llama"):
         response_text = await groq_api.generate_response_groq(memory.get_formatted_message_history(self.message_history, user_id))
         
         # Add AI response to history
-        memory.update_message_history(self.message_history, user_id, "assistant", response_text)
+        memory.update_message_history(self.message_history, user_id, "assistant (L)", response_text)
         memory.save_memory(self.message_history)
         return response_text
 

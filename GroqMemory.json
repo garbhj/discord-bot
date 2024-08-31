@@ -1,1 +1,34 @@
-{}
+{
+    "894673272862539887": [
+        {
+            "role": "user",
+            "content": "What is this?",
+            "attachments": [
+                {
+                    "uri": "https://generativelanguage.googleapis.com/v1beta/files/ekns7z0e2xao",
+                    "name": "files/ekns7z0e2xao",
+                    "mime_type": "image/png"
+                }
+            ]
+        },
+        {
+            "role": "assistant (G)",
+            "content": "This is a picture of a mother and baby gazelle. The mother is standing with her head held high, while the baby is nursing from her. The background is a dry, grassy field."
+        },
+        {
+            "role": "user",
+            "content": "For both pictures, which way is the animal facing?",
+            "attachments": [
+                {
+                    "uri": "https://generativelanguage.googleapis.com/v1beta/files/50zg262e1ipe",
+                    "name": "files/50zg262e1ipe",
+                    "mime_type": "image/png"
+                }
+            ]
+        },
+        {
+            "role": "assistant (G)",
+            "content": "This is a picture of an elephant. It's facing the left side of the image. \n"
+        }
+    ]
+}

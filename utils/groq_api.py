@@ -14,9 +14,22 @@ async def generate_response_groq(message_history):
     if system_prompt:
         messages.insert(0, {"role": "system", "content": system_prompt})
 
-    # Add the conversation history to api call
-    for role, content in message_history:
-        messages.append({"role": role, "content": content})
+    # # Add the conversation history to api call
+    # for role, content in message_history:
+    #     messages.append({"role": role, "content": content})
+
+    for message in message_history:
+        content = message['content']
+        
+        # If there are attachments, add their information to the content
+        if 'attachments' in message:
+            attachment_info = "\n[Attachments (System: as LLama, a text-based LLM, you are unable to be analyze these directly): " + ", ".join(
+                f"{att['mime_type']} (name: {att['name']})" 
+                for att in message['attachments']
+            ) + "]"
+            content += attachment_info
+
+        messages.append({"role": message['role'], "content": content})
 
     try:
         chat_completion = client.chat.completions.create(

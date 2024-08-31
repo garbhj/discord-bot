@@ -47,7 +47,7 @@ class Chat(commands.Cog, name="chat"):
 
             if attachments != []:
                 print(len(attachments))
-                response_text = await gemini_api.generate_multimodal_response(cleaned_text, attachments)
+                response_text = await gemini_api.generate_multimodal_response(cleaned_text, attachments, message.author.id)
             else:
                 print("No attachments")
                 # No image or audio attachments, use Llama
@@ -73,6 +73,7 @@ class Chat(commands.Cog, name="chat"):
                 return {
                     'filename': attachment.filename,
                     'data': uploaded_file,
+                    'name': uploaded_file.name,
                     'uri': uploaded_file.uri,
                     'mime_type': attachment.content_type or 'image/jpeg',
                     'upload_type': 'file_api'
@@ -91,6 +92,7 @@ class Chat(commands.Cog, name="chat"):
         return {
             'filename': attachment.filename,
             'data': uploaded_file,
+            'name': uploaded_file.name,
             'uri': uploaded_file.uri,
             'mime_type': attachment.content_type or 'audio/mpeg',
             'upload_type': 'file_api'

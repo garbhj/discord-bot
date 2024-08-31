@@ -1,9 +1,8 @@
 import os
 import google.generativeai as genai
 from google.api_core import retry
-from PIL import Image
-import io
-
+from utils import memory
+import time
 
 # Load the Google AI key from environment variables
 GOOGLE_AI_KEY = os.getenv("GOOGLE_AI_KEY")
@@ -44,31 +43,26 @@ async def generate_response_with_image_and_text(image_data, text):
     return response.text
 
 # To handle multiple attachements
-async def generate_multimodal_response(text, attachments):
-    prompt_parts = [text] if text else ["Please respond to these files, as you deem appropriate."]
+async def generate_multimodal_response(text, attachments, user_id):
+    history = memory.load_memory()
 
-    for attachment in attachments:
-        if 'image' in attachment['mime_type']:
-            if attachment['upload_type'] == 'inline':
-                image = Image.open(io.BytesIO(attachment['data']))
-                prompt_parts.append(image)
-            elif attachment['upload_type'] == 'file_api':
-                # file = genai.get_file(attachment['data'])
-                prompt_parts.append(attachment['data'])  # 
+    # Update the message history with the new message
+    memory.update_message_history(history, user_id, "user", text, attachments)
+    time.sleep(0.1)
 
-        elif 'audio' in attachment['mime_type']:
-            if attachment['upload_type'] == 'inline':
-                prompt_parts.append({
-                    'mime_type': attachment['mime_type'],
-                    'data': attachment['data']
-                })
-            elif attachment['upload_type'] == 'file_api':
-                # file = genai.get_file(attachment['data'])
-                prompt_parts.append(attachment['data'])  # 
-
+    # Prepare the prompt parts
+    prompt_parts = []
+    for message in memory.get_formatted_message_history(history, user_id):
+        prompt_parts.append(message['content'])
+        if 'attachments' in message:
+            for attachment in message['attachments']:
+                file_object = genai.get_file(name=attachment['name'])
+                prompt_parts.append(file_object)
 
     # I added these print statements for troubleshooting
     print(len(prompt_parts))
+    print("Prompt parts:", prompt_parts)
+
 
     print("Generating content...")
     response = backup_model.generate_content(prompt_parts)
@@ -77,5 +71,11 @@ async def generate_multimodal_response(text, attachments):
     if response._error:
         print(str(response._error))
         return "❌" + str(response._error)
+    
+    memory.update_message_history(history, user_id, "assistant (G)", response.text)
+    memory.save_memory(history)
+
     print(response.text)
     return response.text
+
+

@@ -1,6 +1,5 @@
 import json
 import os
-from typing import List, Dict, Union, Tuple
 
 
 # Load configuration from environment variables
@@ -21,7 +20,7 @@ def save_memory(memory):
         json.dump(memory, f, indent=4)
 
 # Update message history
-def update_message_history(message_history, user_id, role, text, attachments=None):
+def update_message_history(message_history, user_id, role: str, text: str, attachments=None):
     user_id = str(user_id)
     if user_id not in message_history:
         message_history[user_id] = []
@@ -35,6 +34,7 @@ def update_message_history(message_history, user_id, role, text, attachments=Non
         new_message["attachments"] = [
             {
                 "uri": attachment['uri'],
+                "name": attachment['name'],
                 "mime_type": attachment['mime_type']
             } for attachment in attachments
         ]
@@ -43,11 +43,15 @@ def update_message_history(message_history, user_id, role, text, attachments=Non
     token_count = (len(text) + 3) // 4
 
     # Check if adding this message exceeds the limit
-    while token_count + sum((len(content) + 3) // 4 for _, content in message_history[user_id]) > MAX_TOKENS and len(message_history[user_id]) > 2:
+    while (token_count + 
+           sum((len(msg.get("content", "")) + 3) // 4 + 
+               len(msg.get("attachments", [])) * 258 
+               for msg in message_history[user_id]) > MAX_TOKENS and 
+           len(message_history[user_id]) > 2):
         del message_history[user_id][0]
-        message_history[user_id].insert(0, ("system", "<message history truncated>"))
+        message_history[user_id].insert(0, {"role": "system", "content": "<message history truncated>"})
 
-    message_history[user_id].append((role, text))
+    message_history[user_id].append(new_message)
 
 # Get formatted message history
 def get_formatted_message_history(message_history, user_id):

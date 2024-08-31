@@ -29,10 +29,10 @@ class Gemini(commands.Cog, name="gemini"):
         async with message.channel.typing():
             cleaned_text = helpers.clean_discord_message(message.content)
             for attachment in message.attachments:
-                if any(attachment.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']):
+                if any(attachment.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.webp', '.heic', '.heif']):
                     await message.add_reaction('🎨')
                     await self.handle_image_attachment(message, attachment, cleaned_text)
-                elif any(attachment.filename.lower().endswith(ext) for ext in ['.mp3', '.wav', '.ogg']):
+                elif any(attachment.filename.lower().endswith(ext) for ext in ['.wav', '.mp3', '.aiff', '.aac', '.ogg', '.flac']):
                     await message.add_reaction('🎵')
                     await self.handle_audio_attachment(message, attachment, cleaned_text)
 

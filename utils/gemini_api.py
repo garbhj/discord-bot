@@ -49,8 +49,13 @@ async def generate_multimodal_response(text, attachments):
 
     for attachment in attachments:
         if 'image' in attachment['mime_type']:
-            image = Image.open(io.BytesIO(attachment['data']))
-            prompt_parts.append(image)
+            if attachment['upload_type'] == 'inline':
+                image = Image.open(io.BytesIO(attachment['data']))
+                prompt_parts.append(image)
+            elif attachment['upload_type'] == 'file_api':
+                # file = genai.get_file(attachment['data'])
+                prompt_parts.append(attachment['data'])  # 
+
         elif 'audio' in attachment['mime_type']:
             if attachment['upload_type'] == 'inline':
                 prompt_parts.append({

@@ -1,8 +1,10 @@
 import json
 import os
+from typing import List, Dict, Union, Tuple
+
 
 # Load configuration from environment variables
-MAX_TOKENS = int(os.getenv("MAX_TOKENS", 2048))
+MAX_TOKENS = int(os.getenv("MAX_TOKENS", 8000))
 
 # Load memory from a JSON file
 def load_memory():
@@ -19,10 +21,23 @@ def save_memory(memory):
         json.dump(memory, f, indent=4)
 
 # Update message history
-def update_message_history(message_history, user_id, role, text):
+def update_message_history(message_history, user_id, role, text, attachments=None):
     user_id = str(user_id)
     if user_id not in message_history:
         message_history[user_id] = []
+
+    new_message = {
+        "role": role,
+        "content": text
+    }
+    
+    if attachments:
+        new_message["attachments"] = [
+            {
+                "uri": attachment['uri'],
+                "mime_type": attachment['mime_type']
+            } for attachment in attachments
+        ]
 
     # Estimate token count
     token_count = (len(text) + 3) // 4

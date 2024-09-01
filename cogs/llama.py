@@ -5,9 +5,6 @@ from utils import memory, groq_api, helpers
 import os
 
 MAX_HISTORY = int(os.getenv("MAX_HISTORY", 0))
-MAX_TOKENS = int(os.getenv("MAX_TOKENS", 2048))
-CHANNEL_ID = int(os.getenv("CHANNEL_ID", "0"))
-
 
 class Llama(commands.Cog, name="llama"):
     def __init__(self, bot) -> None:
@@ -51,13 +48,8 @@ class Llama(commands.Cog, name="llama"):
         if MAX_HISTORY == 0:
             return await groq_api.generate_response_groq(cleaned_text)
 
-        # Add user's question to history
-        memory.update_message_history(self.message_history, user_id, "user", cleaned_text)
-        response_text = await groq_api.generate_response_groq(memory.get_formatted_message_history(self.message_history, user_id))
+        response_text = await groq_api.generate_response_groq(cleaned_text, user_id)
         
-        # Add AI response to history
-        memory.update_message_history(self.message_history, user_id, "assistant (L)", response_text)
-        memory.save_memory(self.message_history)
         return response_text
 
     async def reset_user_history(self, user_id):

@@ -1,8 +1,5 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
-from utils import memory, groq_api, helpers
-import os
 
 
 class Test(commands.Cog, name="test"):

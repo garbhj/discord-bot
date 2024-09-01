@@ -4,7 +4,6 @@ from utils import memory, helpers, gemini_api
 import tempfile
 import aiohttp
 import google.generativeai as genai
-from io import BytesIO
 import os
 
 
